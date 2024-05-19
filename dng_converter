@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+
+# Convert .dng to other file format (jpg as default)
+main () {
+	# get the filename (without the extension)
+	file=${1##*/} # Remove leading directories
+	file=${file%%.*} # Remove trailing extensions
+
+	mkdir -p output
+
+	# do conversion
+    dcraw -c $1 | convert - output/$file.$2
+	echo "Done!"
+}
+
+# Check if there are any arguments provided
+if [[ $# -eq 0 ]]; then
+	echo "No input files provided."
+	exit 1
+fi
+
+# Check if dcraw is installed:
+if ! dpkg -l | grep -qi "dcraw"; then
+    echo "dcraw must be installed"
+    echo "Use command: 'sudo apt install dcraw'"
+    exit 1
+fi
+
+# Check if imagemagick is installed
+if ! dpkg -l | grep -qi "imagemagick"; then
+    echo "imagemagick must be installed"
+    echo "Use command: 'sudo apt install imagemagick'"
+    exit 1
+fi
+
+# Check if file output argument is provided
+if [[ $# -eq 2 ]]; then
+    if identify -list format | grep -qi "$2"; then
+        format="$2"
+    else
+        echo "Improper format provided. Defaulting to jpg"
+        format="jpg"
+    fi
+else
+    format="jpg"
+fi
+
+# Check if provided argument is a directory
+if [[ -d $1 ]]; then
+	# fill an array with all .dng files in the dir. Throw away ls error messages
+	declare -a pictures=($(ls $1/* 2> /dev/null | grep -i "\.dng"))
+	
+	# Check if there are any .dng files in the array
+	if [[ ${#pictures[@]} -gt 0 ]]; then
+        echo "Converting!"
+
+		for picture in "${pictures[@]}"; do
+			main "$picture" "$format"
+		done
+		exit 0
+	else
+		echo "No pictures found in directory"
+		exit 1
+	fi
+fi
+
+# Check if provided argument is a .dng file
+if [[ ${1,,} == *.dng ]]; then
+    echo "Converting!"
+	main "$1" "$format"
+	exit 0
+else
+	echo "Photo must be a .dng file"
+	exit 1
+fi
